@@ -1,7 +1,11 @@
+import argparse
+
 class RoundRobin:
 
-    def __init__(self, numTeams):
+    def __init__(self, numTeams, fixedDrawFilename=None, verbose=False):
         self.numTeams = numTeams
+        self.fixedDrawFilename = fixedDrawFilename
+        self.verbose = verbose
 
     def createYetToPlayDict(self, numTeams):
         yetToPlay = {}
@@ -31,7 +35,8 @@ class RoundRobin:
                 matchlist.append((home, away))
             draw.append(matchlist)
 
-        print draw
+        if self.verbose:
+            print "Fixed Draw : ", draw
         return draw
 
     def findOpponents(self, toPlayThisRound, toPlayThisTeam):
@@ -49,7 +54,8 @@ class RoundRobin:
         return matchups
 
     def selectMatchup(self, matchList, toPlay, yetToPlay):
-        print "* Select matchup", matchList, toPlay, yetToPlay
+        if self.verbose:
+            print "* Select matchup", matchList, toPlay, yetToPlay
         if self.foundValidRound:
             return
         if toPlay == []:
@@ -59,10 +65,12 @@ class RoundRobin:
         homeTeam = toPlay[0]
         opponents = self.findOpponents(toPlay, yetToPlay[homeTeam])
         matchups = self.createMatchupList(homeTeam, opponents)
-        print matchups
+        if self.verbose:
+            print matchups
         for m in matchups:
             (home, away) = m
-            print "Selecting", m
+            if self.verbose:
+                print "Selecting", m
             mList = list(matchList)
             mList.append(m)
             tp = list(toPlay)
@@ -112,23 +120,30 @@ class RoundRobin:
 
     def calc(self):
         yetToPlay = self.createYetToPlayDict(self.numTeams)
-        print yetToPlay
+        if self.verbose:
+            print yetToPlay
         self.results = []
-        fixedDraw = self.readFixedDraw('fixedDraw.txt')
         roundNum = 1
-        for matchlist in fixedDraw:
-            self.removeTeamsPlayed(matchlist, yetToPlay)
-            res = self.createRoundString(roundNum, self.matchlistToStrings(matchlist))
-            self.results.append("Fixed " + res)
-            roundNum += 1
+
+        # Import the fixed draw from file
+        if self.fixedDrawFilename is not None:
+            fixedDraw = self.readFixedDraw('fixedDraw.txt')
+            for matchlist in fixedDraw:
+                self.removeTeamsPlayed(matchlist, yetToPlay)
+                res = self.createRoundString(roundNum, self.matchlistToStrings(matchlist))
+                self.results.append("Fixed " + res)
+                roundNum += 1
+
         while not self.roundRobinComplete(yetToPlay):
             rnd = self.createRound(self.numTeams, yetToPlay)
             res = self.createRoundString(roundNum, rnd)
-            print res
+            if self.verbose:
+                print res
             self.results.append(res)
             roundNum += 1
 
-            print yetToPlay
+            if self.verbose:
+                print yetToPlay
 
     def printResults(self):
         print "** Results :"
@@ -137,7 +152,20 @@ class RoundRobin:
 
 if __name__ == '__main__':
 
-    rr = RoundRobin(numTeams=6)
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     description='Calculate a Round Robin draw with optional fixed initial rounds', 
+                                     epilog='''
+      EXAMPLES:
+
+      RoundRobin.exe 6
+      RoundRobin.exe 6 fixedDraw.txt
+                                     ''')
+    parser.add_argument('numTeams', metavar='numTeams', type=int, help='Number of teams in competition')
+    parser.add_argument('fixedDrawFilename', nargs='?', metavar='fixedDrawFilename', type=str, help='File with initial fixed draw')
+    parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
+    args = parser.parse_args()
+
+    rr = RoundRobin(numTeams=args.numTeams, fixedDrawFilename=args.fixedDrawFilename, verbose=args.verbose)
     rr.calc()
     rr.printResults()
 
